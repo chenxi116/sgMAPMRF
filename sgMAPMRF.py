@@ -66,7 +66,10 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 		dual_obj = DualObjective(unary_e, pairwise_e, unary_mu, pairwise_mu, ld, cmtx)
 		q.append(dual_obj)
 		
+		t1 = time.time()
 		primal_obj = PrimalObjective(unary_e, pairwise_i, pairwise_e, unary_mu)
+		t2 = time.time()
+		print t2 - t1
 		p.append(primal_obj)
 
 		print '{:>9} {:>4} {:>6} {:10.2f} {:>8} {:10.2f}'.format \
@@ -102,11 +105,10 @@ def PrimalObjective(unary_e, pairwise_i, pairwise_e, unary_mu):
 
 	ne = len(pairwise_i)
 	pairwise_mu = np.zeros((ne, 2, 2))
-	for idx in range(ne):
-		i, j = pairwise_i[idx][0], pairwise_i[idx][1]
-		s0 = np.argmax(unary_mu[i])
-		s1 = np.argmax(unary_mu[j])
-		pairwise_mu[idx, s0, s1] = 1
+	i, j = pairwise_i[:, 0], pairwise_i[:, 1]
+	s0 = np.argmax(unary_mu[i], axis = 1)
+	s1 = np.argmax(unary_mu[j], axis = 1)
+	pairwise_mu[range(ne), s0, s1] = 1
 	pairwise_term = np.multiply(pairwise_e, pairwise_mu).sum()
 
 	return unary_term + pairwise_term

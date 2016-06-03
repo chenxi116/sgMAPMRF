@@ -52,10 +52,7 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 	for t in range(1, Tmax):
 
 		# Update unary_mu
-		t1 = time.time()
 		unary_mu = UpdateUnary(unary_e, unary_ld, ld)
-		t2 = time.time()
-		print t2 - t1
 
 		# Update pairwise_mu
 		pairwise_mu = UpdatePairwise(pairwise_e, ld)
@@ -65,11 +62,8 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 		# Compute objective
 		dual_obj = DualObjective(unary_e, pairwise_e, unary_mu, pairwise_mu, ld, cmtx)
 		q.append(dual_obj)
-		
-		t1 = time.time()
+
 		primal_obj = PrimalObjective(unary_e, pairwise_i, pairwise_e, unary_mu)
-		t2 = time.time()
-		print t2 - t1
 		p.append(primal_obj)
 
 		print '{:>9} {:>4} {:>6} {:10.2f} {:>8} {:10.2f}'.format \
@@ -140,24 +134,19 @@ def GetUnaryLd(nv, pairwise_i):
 		unary_ld[i].append((ie, 0))
 		unary_ld[j].append((ie, 1))
 		
-	return unary_ld
+	return np.array(unary_ld)
 
 
 def UpdateUnary(unary_e, unary_ld, ld):
 
 	nv = len(unary_e)
 	unary_mu = np.zeros((nv, 2))
-	for idx in range(nv):
-		sum0, sum1 = 0, 0
-		for item in unary_ld[idx]:
-			sum0 += ld[item[0], item[1], 0]
-			sum1 += ld[item[0], item[1], 1]
-		s0 = unary_e[idx][0] - sum0
-		s1 = unary_e[idx][1] - sum1
-		if s0 < s1:
-			unary_mu[idx][0] = 1
-		else:
-			unary_mu[idx][1] = 1
+	mtx = np.zeros((nv, 2))
+	mtx[:, 0] = ld[unary_ld[:, :, 0], unary_ld[:, :, 1], np.zeros((nv, 4), dtype = np.int)].sum(axis = 1)
+	mtx[:, 1] = ld[unary_ld[:, :, 0], unary_ld[:, :, 1], np.ones((nv, 4), dtype = np.int)].sum(axis = 1)
+	tmp = np.subtract(unary_e, mtx)
+	unary_mu[:, 0] = (tmp[:, 0] < tmp[:, 1]).astype(int)
+	unary_mu[:, 1] = 1 - unary_mu[:, 0]
 
 	return unary_mu
 

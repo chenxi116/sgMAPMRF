@@ -6,7 +6,7 @@
 # Main reference: 
 # Nowozin, Sebastian, and Christoph H. Lampert. 
 # "Structured learning and prediction in computer vision." 
-# Foundations and Trends® in Computer Graphics and Vision 6.3–4 (2011): 185-365.
+# Foundations and Trends in Computer Graphics and Vision 6.3-4 (2011): 185-365.
 
 # Application: Image denoising
 # Input: A black-and-white image whose path is specified with -i. 
@@ -22,6 +22,7 @@ import pdb
 import matplotlib.pyplot as plt
 import argparse
 import random
+import time
 
 
 def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
@@ -31,7 +32,7 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 	# in this example ne = 2 * nv
 
 	# unary_e: numpy array of size nv * 2
-	# pairwise_i: list of length ne. Each element is a tuple of two node ids
+	# pairwise_i: numpy array of ne * 2
 	# pairwise_e: numpy array of size ne * 2 * 2
 
 	# unary_mu: nv * 2 binary matrix. Each row has one 1, and the other is 0
@@ -47,10 +48,14 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 	unary_ld = GetUnaryLd(nv, pairwise_i)
 
 	p, q = [], []
+	t1 = time.time()
 	for t in range(1, Tmax):
 
 		# Update unary_mu
+		t1 = time.time()
 		unary_mu = UpdateUnary(unary_e, unary_ld, ld)
+		t2 = time.time()
+		print t2 - t1
 
 		# Update pairwise_mu
 		pairwise_mu = UpdatePairwise(pairwise_e, ld)
@@ -74,6 +79,9 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 		alpha = (1. + m)/(t + m) # step size
 		ld = ld + alpha * cmtx # gradient ascent
 
+	t2 = time.time()
+	print 'Elapsed Time:', t2 - t1
+	
 	y = [np.argmax(item) for item in unary_mu]
 	return y, p, q
 
@@ -108,13 +116,12 @@ def GetConstraintMtx(pairwise_i, unary_mu, pairwise_mu):
 
 	ne = len(pairwise_i)
 	cmtx = np.zeros((ne, 2, 2))
-	for idx in range(ne):
-		i, j = pairwise_i[idx][0], pairwise_i[idx][1]
-		mtx = pairwise_mu[idx]
-		cmtx[idx, 0, 0] = mtx[0, 0] + mtx[0, 1] - unary_mu[i, 0]
-		cmtx[idx, 0, 1] = mtx[1, 0] + mtx[1, 1] - unary_mu[i, 1]
-		cmtx[idx, 1, 0] = mtx[0, 0] + mtx[1, 0] - unary_mu[j, 0]
-		cmtx[idx, 1, 1] = mtx[0, 1] + mtx[1, 1] - unary_mu[j, 1]
+
+	i, j = pairwise_i[:, 0], pairwise_i[:, 1]
+	cmtx[:, 0, 0] = pairwise_mu[:, 0, 0] + pairwise_mu[:, 0, 1] - unary_mu[i, 0]
+	cmtx[:, 0, 1] = pairwise_mu[:, 1, 0] + pairwise_mu[:, 1, 1] - unary_mu[i, 1]
+	cmtx[:, 1, 0] = pairwise_mu[:, 0, 0] + pairwise_mu[:, 1, 0] - unary_mu[j, 0]
+	cmtx[:, 1, 1] = pairwise_mu[:, 0, 1] + pairwise_mu[:, 1, 1] - unary_mu[j, 1]
 
 	return cmtx
 
@@ -127,7 +134,7 @@ def GetUnaryLd(nv, pairwise_i):
 
 	ne = len(pairwise_i)
 	for ie in range(ne):
-		(i, j) = pairwise_i[ie]
+		i, j = pairwise_i[ie]
 		unary_ld[i].append((ie, 0))
 		unary_ld[j].append((ie, 1))
 		
@@ -157,13 +164,13 @@ def UpdatePairwise(pairwise_e, ld):
 
 	ne = len(pairwise_e)
 	pairwise_mu = np.zeros((ne, 2, 2))
-	mtx = np.zeros((2, 2))
-	for idx in range(ne):
-		mtx[0, 0] = pairwise_e[idx, 0, 0] + ld[idx, 0, 0] + ld[idx, 1, 0]
-		mtx[0, 1] = pairwise_e[idx, 0, 1] + ld[idx, 0, 0] + ld[idx, 1, 1]
-		mtx[1, 0] = pairwise_e[idx, 1, 0] + ld[idx, 0, 1] + ld[idx, 1, 0]
-		mtx[1, 1] = pairwise_e[idx, 1, 1] + ld[idx, 0, 1] + ld[idx, 1, 1]
-		pairwise_mu[idx][np.unravel_index(np.argmin(mtx), (2, 2))] = 1
+	mtx = np.zeros((ne, 2*2))
+	mtx[:, 0] = pairwise_e[:, 0, 0] + ld[:, 0, 0] + ld[:, 1, 0]
+	mtx[:, 1] = pairwise_e[:, 0, 1] + ld[:, 0, 0] + ld[:, 1, 1]
+	mtx[:, 2] = pairwise_e[:, 1, 0] + ld[:, 0, 1] + ld[:, 1, 0]
+	mtx[:, 3] = pairwise_e[:, 1, 1] + ld[:, 0, 1] + ld[:, 1, 1]
+	idx = np.unravel_index(np.argmin(mtx, axis = 1), (2, 2))
+	pairwise_mu[range(ne), idx[0], idx[1]] = 1
 
 	return pairwise_mu
 
@@ -217,6 +224,7 @@ def PrepFactors(noise, unary_w, pairwise_w):
 		else:
 			pair_down = (i, i + w)
 		pairwise_i.append(pair_down)
+	pairwise_i = np.array(pairwise_i)
 
 	# Pairwise energy
 	pairwise_e = np.array([[0, 1], [1, 0]]) * pairwise_w

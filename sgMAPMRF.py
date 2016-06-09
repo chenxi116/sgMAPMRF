@@ -80,7 +80,7 @@ def sgMAPMRF(unary_e, pairwise_i, pairwise_e, m = 5., Tmax = 50, gap = 10.):
 	print 'Elapsed Time:', t2 - t1
 	
 	y = [np.argmax(item) for item in unary_mu]
-	return y, p, q
+	return np.array(y, dtype=np.uint8), p, q
 
 
 def DualObjective(unary_e, pairwise_e, unary_mu, pairwise_mu, ld, cmtx):
@@ -281,6 +281,8 @@ if __name__ == "__main__":
 		VisualizeConvergence(p, q)
 		VisualizeImage(denoise, 'Denoise Image')
 
+	# pdb.set_trace()
+
 	# Print number of pixels different from original image
-	print 'Pixel Error:', abs(np.subtract(y, image.flatten())).sum()
+	print 'Pixel Error:', (y != image.flatten()).sum()
 
